@@ -2,7 +2,7 @@ from typing import Literal
 
 import pandas as pd
 
-from dispersion_trading.util import check_is_true
+from util import check_is_true
 
 
 def select_options(

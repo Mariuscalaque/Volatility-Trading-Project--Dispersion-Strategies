@@ -1,5 +1,5 @@
 [project]
-name = "dispersion_trading"
+name = "vol-dispersion"
 version = "0.1.0"
 authors = [
   { name="Mariuscalaque" },
@@ -14,7 +14,10 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["dispersion_trading*"]
+include = ["*"]
 exclude = ["data*", "notebooks*", "lectures*", "tests*"]

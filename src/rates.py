@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from dispersion_trading.constants import DAYS_PER_YEAR, TENOR_TO_PERIOD
-from dispersion_trading.util import check_is_true
+from constants import DAYS_PER_YEAR, TENOR_TO_PERIOD
+from util import check_is_true
 
 
 def compute_forward(df_options: pd.DataFrame, df_rates: pd.DataFrame) -> pd.DataFrame:

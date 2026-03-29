@@ -5,7 +5,7 @@ from typing import Optional
 
 import pandas as pd
 
-from dispersion_trading.util import check_is_true
+from util import check_is_true
 
 
 class DataLoader(ABC):
