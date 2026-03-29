@@ -28,22 +28,21 @@ Three sizing flavors are implemented to match the greek notional between the two
 │   ├── 02_single_leg_delta_hedging.ipynb
 │   └── 03_dispersion_backtest.ipynb
 └── src/
-    └── dispersion_trading/
-        ├── constants.py           # Trading constants (days/year, tenor mapping)
-        ├── rates.py               # Risk-free rate interpolation, forward computation
-        ├── specs.py               # TypedDicts: OptionLegSpec, DispersionLegSpec, ...
-        ├── util.py                # Shared utilities
-        ├── data/                  # Data loaders (options DB, rates DB)
-        ├── dispersion/            # Greek-neutral sizing logic (θ/Γ/ν flavors)
-        ├── metrics/               # Performance, volatility, distance metrics
-        ├── pricing/               # Black-Scholes pricing and Greeks
-        ├── stochastic/            # Stochastic process base classes (GBM)
-        ├── surface/               # Volatility surface models (SVI, SSVI, SABR)
-        └── trading/               # Trade generation and backtesting
-            ├── backtest.py        # StrategyBacktester, BacktesterBidAskFromData
-            ├── option_trade.py    # OptionTrade, DeltaHedgedOptionTrade, ...
-            ├── selection.py       # Option selection utilities
-            └── strategies.py     # Pre-defined option strategy leg specs
+    ├── constants.py           # Trading constants (days/year, tenor mapping)
+    ├── rates.py               # Risk-free rate interpolation, forward computation
+    ├── specs.py               # TypedDicts: OptionLegSpec, DispersionLegSpec, ...
+    ├── util.py                # Shared utilities
+    ├── data/                  # Data loaders (options DB, rates DB)
+    ├── dispersion/            # Greek-neutral sizing logic (θ/Γ/ν flavors)
+    ├── metrics/               # Performance, volatility, distance metrics
+    ├── pricing/               # Black-Scholes pricing and Greeks
+    ├── stochastic/            # Stochastic process base classes (GBM)
+    ├── surface/               # Volatility surface models (SVI, SSVI, SABR)
+    └── trading/               # Trade generation and backtesting
+        ├── backtest.py        # StrategyBacktester, BacktesterBidAskFromData
+        ├── option_trade.py    # OptionTrade, DeltaHedgedOptionTrade, ...
+        ├── selection.py       # Option selection utilities
+        └── strategies.py     # Pre-defined option strategy leg specs
 ```
 
 ## Installation
