@@ -1,16 +1,18 @@
+import pathlib
 from datetime import datetime
 
 import pandas as pd
 
 from src.data.data_loader import DataLoader
 
-ROOT_PATH = r"../../.."
+# Resolve project root from this file's location: src/data/rates_db.py -> project root
+ROOT_PATH = pathlib.Path(__file__).resolve().parents[2]
 
 
 class USRatesLoader(DataLoader):
     @classmethod
     def _get_path(cls) -> str:
-        return rf"{ROOT_PATH}/data/par-yield-curve-rates-2020-2023.csv"
+        return str(ROOT_PATH / "data" / "par-yield-curve-rates-2020-2023.csv")
 
     @classmethod
     def _get_valid_date_range(cls) -> tuple[datetime, datetime]:

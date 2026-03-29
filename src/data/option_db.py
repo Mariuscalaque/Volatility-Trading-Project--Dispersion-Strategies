@@ -1,3 +1,4 @@
+import pathlib
 from datetime import datetime
 from typing import Sequence
 
@@ -6,13 +7,14 @@ import pandas as pd
 
 from src.data.data_loader import DataLoader
 
-ROOT_PATH = r"../../.."
+# Resolve project root from this file's location: src/data/option_db.py -> project root
+ROOT_PATH = pathlib.Path(__file__).resolve().parents[2]
 
 
 class OptionLoader(DataLoader):
     @classmethod
     def _get_path(cls) -> str:
-        return rf"{ROOT_PATH}/data/optiondb_2016_2023.parquet"
+        return str(ROOT_PATH / "data" / "optiondb_2016_2023.parquet")
 
     @classmethod
     def _get_valid_date_range(cls) -> tuple[datetime, datetime]:
@@ -57,21 +59,37 @@ class OptionLoader(DataLoader):
 class SPYOptionLoader(OptionLoader):
     @classmethod
     def _get_path(cls) -> str:
-        return rf"{ROOT_PATH}/data/spy_2020_2022.parquet"
+        return str(ROOT_PATH / "data" / "spy_2020_2022.parquet")
 
     @classmethod
     def _get_valid_date_range(cls) -> tuple[datetime, datetime]:
         return (datetime(2020, 1, 2), datetime(2022, 12, 30))
 
+    @classmethod
+    def _process_loaded_data(
+        cls, df: pd.DataFrame, *, ticker: str | Sequence[str], **kwargs
+    ) -> pd.DataFrame:
+        if "ticker" not in df.columns:
+            df["ticker"] = "SPY"
+        return super()._process_loaded_data(df, ticker=ticker, **kwargs)
+
 
 class AAPLOptionLoader(OptionLoader):
     @classmethod
     def _get_path(cls) -> str:
-        return rf"{ROOT_PATH}/data/aapl_2016_2023.parquet"
+        return str(ROOT_PATH / "data" / "aapl_2016_2023.parquet")
 
     @classmethod
     def _get_valid_date_range(cls) -> tuple[datetime, datetime]:
         return (datetime(2016, 1, 2), datetime(2023, 12, 31))
+
+    @classmethod
+    def _process_loaded_data(
+        cls, df: pd.DataFrame, *, ticker: str | Sequence[str], **kwargs
+    ) -> pd.DataFrame:
+        if "ticker" not in df.columns:
+            df["ticker"] = "AAPL"
+        return super()._process_loaded_data(df, ticker=ticker, **kwargs)
 
 
 def extract_spot_from_options(df_options: pd.DataFrame) -> pd.DataFrame:
