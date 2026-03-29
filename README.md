@@ -1,33 +1,65 @@
-# Lecture Volatility Trading
+# Dispersion Trading — θ/Γ/ν-neutral SPY/AAPL
 
-## Setup
+A volatility dispersion trading strategy implemented in Python.
 
-Run the following commands to install the required packages:
+## Strategy Overview
+
+This project implements a long dispersion trade consisting of two legs:
+- **Short volatility on SPY** (index leg): short ATM straddle, carry-type exposure
+- **Long volatility on AAPL** (component leg): long ATM straddle, long gamma exposure
+
+The strategy has a short correlation exposure, which provides a natural hedge during
+market stress. Both legs are delta-neutral, with dynamic delta hedging throughout the
+trade lifecycle.
+
+Three sizing flavors are implemented to match the greek notional between the two legs:
+- **θ-neutral**: theta notional of the short SPY leg matches the long AAPL leg
+- **Γ-neutral**: gamma notional matching
+- **ν-neutral**: vega notional matching
+
+## Project Structure
+
+```
+.
+├── data/                          # Parquet data files (options, rates)
+├── lectures/                      # Course reference notebooks (Lecture 2–5)
+├── notebooks/                     # Project notebooks
+│   ├── 01_data_exploration.ipynb
+│   ├── 02_single_leg_delta_hedging.ipynb
+│   └── 03_dispersion_backtest.ipynb
+└── src/
+    └── dispersion_trading/
+        ├── constants.py           # Trading constants (days/year, tenor mapping)
+        ├── rates.py               # Risk-free rate interpolation, forward computation
+        ├── specs.py               # TypedDicts: OptionLegSpec, DispersionLegSpec, ...
+        ├── util.py                # Shared utilities
+        ├── data/                  # Data loaders (options DB, rates DB)
+        ├── dispersion/            # Greek-neutral sizing logic (θ/Γ/ν flavors)
+        ├── metrics/               # Performance, volatility, distance metrics
+        ├── pricing/               # Black-Scholes pricing and Greeks
+        ├── stochastic/            # Stochastic process base classes (GBM)
+        ├── surface/               # Volatility surface models (SVI, SSVI, SABR)
+        └── trading/               # Trade generation and backtesting
+            ├── backtest.py        # StrategyBacktester, BacktesterBidAskFromData
+            ├── option_trade.py    # OptionTrade, DeltaHedgedOptionTrade, ...
+            ├── selection.py       # Option selection utilities
+            └── strategies.py     # Pre-defined option strategy leg specs
+```
+
+## Installation
 
 ```bash
-pip install -r requirement.txt
 pip install -e .
 ```
 
-# Disclaimer
+## Running the Notebooks
 
-- This course on financial derivatives was developed specifically for the Master 272 program at Paris Dauphine University and is intended for educational purposes only.
-- The content reflects my personal views and interpretations, and does not represent the views, positions, or opinions of my employer or any affiliated institutions.
-- While every effort has been made to ensure the accuracy and relevance of the material, this course does not constitute financial advice, nor does it replace professional consultation where appropriate.
-- This material is licensed under the Creative Commons Attribution-NoDerivatives 4.0 International License (CC BY-ND 4.0). You are free to share and redistribute the content in any medium or format, including for commercial purposes, provided that appropriate credit is given and no modifications or derivative works are made.
+Launch Jupyter from the repository root:
 
-# License
-
-This project is licensed under the terms of the CC BY-NC-SA 4.0 license.
-
-# Citation
-
-```bibtex
-@misc{VolatilityTradingCourse2026,
-  title={Volatility Trading Course: Lecture Materials and Code},
-  author={Baptiste ZLOCH},
-  year={2026},
-  howpublished={url{https://github.com/BaptisteZloch/Volatility-Investment-Course}},
-  note={Python implementation of volatility surface modeling, SABR, and SSVI calibration, option strategies comprehensive backtests, etc. }
-}
+```bash
+jupyter notebook notebooks/
 ```
+
+- `01_data_exploration.ipynb` — explore the options data, bid-ask spreads, and implied vols
+- `02_single_leg_delta_hedging.ipynb` — single-leg straddle with delta hedging backtest
+- `03_dispersion_backtest.ipynb` — full dispersion backtest with all three greek-neutral flavors
