@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
-from dispersion_trading.metrics.distance import mse
-from dispersion_trading.surface.base import VolSmoother
-from dispersion_trading.util import check_is_true
+from metrics.distance import mse
+from surface.base import VolSmoother
+from util import check_is_true
 
 
 class SABRSmoother(VolSmoother):

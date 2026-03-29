@@ -1,8 +1,8 @@
 import pandas as pd
 
-from dispersion_trading.constants import TRADING_DAYS_PER_YEAR
-from dispersion_trading.metrics.util import returns_to_levels
-from dispersion_trading.metrics.volatility import realized_volatility
+from constants import TRADING_DAYS_PER_YEAR
+from metrics.util import returns_to_levels
+from metrics.volatility import realized_volatility
 
 
 def realized_returns(returns: pd.Series) -> float:

@@ -7,12 +7,12 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from dispersion_trading.data.option_db import OptionLoader
-from dispersion_trading.data.rates_db import USRatesLoader
-from dispersion_trading.specs import OptionLegSpec, VarianceSwapLegSpec
-from dispersion_trading.trading.selection import select_options, select_closest_maturity
-from dispersion_trading.rates import compute_forward
-from dispersion_trading.util import check_is_true, ffill_options_data
+from data.option_db import OptionLoader
+from data.rates_db import USRatesLoader
+from specs import OptionLegSpec, VarianceSwapLegSpec
+from trading.selection import select_options, select_closest_maturity
+from rates import compute_forward
+from util import check_is_true, ffill_options_data
 
 
 class OptionTradeABC(ABC):

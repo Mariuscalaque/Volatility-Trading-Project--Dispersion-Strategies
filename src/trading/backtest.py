@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from dispersion_trading.data.option_db import OptionLoader
-from dispersion_trading.util import check_is_true, ffill_options_data
+from data.option_db import OptionLoader
+from util import check_is_true, ffill_options_data
 
 
 class StrategyBacktester:

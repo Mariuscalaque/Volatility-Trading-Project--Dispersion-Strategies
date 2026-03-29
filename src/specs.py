@@ -1,6 +1,6 @@
 from typing import Literal, TypedDict
 
-from dispersion_trading.dispersion.greek_sizing import GreekFlavor
+from dispersion.greek_sizing import GreekFlavor
 
 
 class OptionLegSpec(TypedDict, total=False):
