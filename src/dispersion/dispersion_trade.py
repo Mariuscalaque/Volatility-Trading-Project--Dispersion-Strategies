@@ -6,7 +6,7 @@ Implements a long dispersion trade:
 - Greek-neutral sizing between the two legs (θ, Γ-dollar, or ν)
 - Independent delta hedging per underlier
 
-This module lives in ``dispersion/`` — a sibling package of ``src/``.
+This module lives in ``src/dispersion/``.
 
 Usage
 -----
@@ -34,7 +34,8 @@ from src.trading.option_trade import OptionTradeABC, DeltaHedgedOptionTrade
 from src.trading.backtest import StrategyBacktester, BacktesterBidAskFromData
 from src.util import ffill_options_data
 
-from src.dispersion.greek_sizing import apply_greek_neutral_sizing, GreekFlavor
+# Relative import — greek_sizing is in the same package (src/dispersion/)
+from .greek_sizing import apply_greek_neutral_sizing, GreekFlavor
 
 # ---------------------------------------------------------------------------
 # Internal trade generator classes — one per data source
@@ -287,23 +288,19 @@ class DispersionBacktester(BacktesterBidAskFromData):
 
         df_options = pd.concat(dfs_options, ignore_index=True)
 
-        # Synthetic spot rows for delta-hedge positions (option_id == ticker)
+        # Synthetic spot rows for delta-hedge positions (option_id == ticker).
+        # Uses first() aggregation instead of groupby().apply(pd.Series)
+        # to avoid pandas 2.x dropping groupby columns inside the lambda.
         df_spot = (
-            df_options.groupby(["date", "ticker"])
-            .apply(
-                lambda x: pd.Series(
-                    {
-                        "option_id": x["ticker"].iloc[0],
-                        "spot": x["spot"].iloc[0],
-                        "bid": x["spot"].iloc[0],
-                        "ask": x["spot"].iloc[0],
-                        "mid": x["spot"].iloc[0],
-                        "delta": 1,
-                    }
-                )
-            )
+            df_options.groupby(["date", "ticker"])[["spot"]]
+            .first()
             .reset_index()
         )
+        df_spot["option_id"] = df_spot["ticker"]
+        df_spot["bid"] = df_spot["spot"]
+        df_spot["ask"] = df_spot["spot"]
+        df_spot["mid"] = df_spot["spot"]
+        df_spot["delta"] = 1
         df_options_spot = pd.concat([df_options, df_spot], ignore_index=True)
 
         # Merge positions with option data

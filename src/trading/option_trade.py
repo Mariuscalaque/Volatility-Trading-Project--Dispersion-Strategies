@@ -221,6 +221,9 @@ class DeltaHedgedOptionTrade(OptionTrade):
     def _hedge_trades(cls, df_trades: pd.DataFrame, **kwargs) -> pd.DataFrame:
         """Delta hedge the trade previously generated.
 
+        Uses aggregation instead of groupby().apply(pd.Series) to avoid
+        pandas 2.x dropping groupby columns inside the lambda.
+
         Args:
             df_trades: Trade DataFrame from `generate_trades`
 
@@ -228,20 +231,22 @@ class DeltaHedgedOptionTrade(OptionTrade):
             Same as input with additional row per date with the delta hedge position.
         """
         logging.info("Applying delta hedging to df_trades")
+
+        # Compute hedge weight per (date, ticker, entry_date) group
+        # using safe aggregation — no .apply(lambda) that accesses groupby keys.
+        df_trades["_hedge_delta"] = df_trades["delta"] * df_trades["weight"]
         df_hedge = (
-            df_trades.groupby(["date", "ticker", "entry_date"])
-            .apply(
-                lambda x: pd.Series(
-                    {
-                        "option_id": x["ticker"].iloc[0],
-                        "expiration": x["date"].iloc[0] + pd.offsets.BusinessDay(n=1),
-                        "leg_name": "DELTA_HEDGING",
-                        "weight": -(x["delta"] * x["weight"]).sum(),
-                    }
-                )
-            )
+            df_trades.groupby(["date", "ticker", "entry_date"])["_hedge_delta"]
+            .sum()
             .reset_index()
         )
+        df_hedge = df_hedge.rename(columns={"_hedge_delta": "weight"})
+        df_hedge["weight"] = -df_hedge["weight"]
+        df_hedge["option_id"] = df_hedge["ticker"]
+        df_hedge["expiration"] = df_hedge["date"] + pd.offsets.BusinessDay(n=1)
+        df_hedge["leg_name"] = "DELTA_HEDGING"
+        df_trades = df_trades.drop(columns=["_hedge_delta"])
+
         return pd.concat([df_trades, df_hedge], ignore_index=True).sort_values(by=["date", "option_id"]).reset_index(drop=True)
 
 

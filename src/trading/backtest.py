@@ -52,10 +52,11 @@ class StrategyBacktester:
         df_positions["dS"] = df_positions.groupby(["option_id"])["spot"].diff().fillna(0)
         df_positions["dt"] = 1
         logging.info("Append previous period greeks for P&L calculations.")
-        df_positions["prev_theta"] = df_positions.groupby("option_id")["theta"].shift(1).fillna(method="bfill")
-        df_positions["prev_gamma"] = df_positions.groupby("option_id")["gamma"].shift(1).fillna(method="bfill")
-        df_positions["prev_delta"] = df_positions.groupby("option_id")["delta"].shift(1).fillna(method="bfill")
-        df_positions["prev_vega"] = df_positions.groupby("option_id")["vega"].shift(1).fillna(method="bfill")
+        # pandas 2.x removed fillna(method=...), use .bfill() instead
+        df_positions["prev_theta"] = df_positions.groupby("option_id")["theta"].shift(1).bfill()
+        df_positions["prev_gamma"] = df_positions.groupby("option_id")["gamma"].shift(1).bfill()
+        df_positions["prev_delta"] = df_positions.groupby("option_id")["delta"].shift(1).bfill()
+        df_positions["prev_vega"] = df_positions.groupby("option_id")["vega"].shift(1).bfill()
         df_positions["obs_date"] = df_positions["entry_date"].apply(lambda x: x - pd.Timedelta(days=1))
         df_pnl = pd.DataFrame(
             [[0, 0, 0, 0, 0, 0, 0, 0]],
@@ -84,7 +85,7 @@ class StrategyBacktester:
             df_day["vega_pnl"] = df_day["scaled_weight"] * df_day["dsigma"] * df_day["prev_vega"]
             df_day["residual_pnl"] = df_day["pnl"] - df_day["delta_pnl"] - df_day["gamma_pnl"] - df_day["theta_pnl"] - df_day["vega_pnl"]
             df_day["leverage"] = df_day["scaled_weight"] * df_day["spot"]
-            df_day["cashflow"] = 0
+            df_day["cashflow"] = 0.0
             df_day.loc[df_day["entry_date"] == df_day["date"], "cashflow"] = -df_day["scaled_weight"] * df_day["mid"]
             df_day.loc[df_day["expiration"] == df_day["date"], "cashflow"] = df_day["scaled_weight"] * df_day["mid"]
 
@@ -114,22 +115,18 @@ class StrategyBacktester:
         start, end = df_positions_cp["date"].min(), df_positions_cp["date"].max()
         tickers = df_positions_cp["ticker"].unique().tolist()
         df_options = OptionLoader.load_data(start, end, process_kwargs={"ticker": tickers})
+        # Safe spot construction — avoids groupby().apply(pd.Series) which
+        # breaks in pandas 2.x (groupby keys excluded from lambda input).
         df_spot = (
-            df_options.groupby(["date", "ticker"])
-            .apply(
-                lambda x: pd.Series(
-                    {
-                        "option_id": x["ticker"].iloc[0],
-                        "spot": x["spot"].iloc[0],
-                        "bid": x["spot"].iloc[0],
-                        "ask": x["spot"].iloc[0],
-                        "mid": x["spot"].iloc[0],
-                        "delta": 1,
-                    }
-                )
-            )
+            df_options.groupby(["date", "ticker"])[["spot"]]
+            .first()
             .reset_index()
         )
+        df_spot["option_id"] = df_spot["ticker"]
+        df_spot["bid"] = df_spot["spot"]
+        df_spot["ask"] = df_spot["spot"]
+        df_spot["mid"] = df_spot["spot"]
+        df_spot["delta"] = 1
         df_options_spot = pd.concat([df_options, df_spot])
         df_positions_extended = df_positions_cp.merge(df_options_spot, how="left", on=["ticker", "option_id", "date"])
         # To ensure not trade after expiration

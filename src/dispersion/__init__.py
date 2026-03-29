@@ -1,4 +1,4 @@
-from dispersion.greek_sizing import (
+from .greek_sizing import (
     GreekFlavor,
     apply_greek_neutral_sizing,
     compute_greek_notional,

@@ -30,20 +30,22 @@ def compute_forward(df_options: pd.DataFrame, df_rates: pd.DataFrame) -> pd.Data
         f"df_options is missing columns: {missing_options_cols}",
     )
 
-    def _compute_values(group: pd.DataFrame) -> pd.DataFrame:
-        dte = group["day_to_expiration"].unique()[0] / DAYS_PER_YEAR
-        tenors = group[TENOR_TO_PERIOD.keys()].columns.map(TENOR_TO_PERIOD).to_numpy()
-        rate_curve = (
-            group[TENOR_TO_PERIOD.keys()].drop_duplicates().to_numpy().reshape(-1)
-        )
-        interpolated_rate = interpolate_rates(dte, tenors=tenors, rate_curve=rate_curve)
-        group["risk_free_rate"] = interpolated_rate
-        return group
-
     df = df_options.merge(df_rates, on="date", how="left")
-    df = (
-        df.groupby(["date", "expiration"]).apply(_compute_values).reset_index(drop=True)
-    )
+
+    # Compute interpolated risk-free rate for each (date, expiration) group.
+    # Uses direct index assignment instead of groupby().apply() to avoid
+    # pandas 2.x bug where groupby columns get absorbed into the index.
+    tenor_keys = list(TENOR_TO_PERIOD.keys())
+    tenors = pd.Index(tenor_keys).map(TENOR_TO_PERIOD).to_numpy()
+    df["risk_free_rate"] = np.nan
+
+    for (_, _), idx in df.groupby(["date", "expiration"]).groups.items():
+        sub = df.loc[idx]
+        dte = sub["day_to_expiration"].iloc[0] / DAYS_PER_YEAR
+        rate_curve = sub[tenor_keys].iloc[0].to_numpy().astype(float)
+        interpolated_rate = interpolate_rates(dte, tenors=tenors, rate_curve=rate_curve)
+        df.loc[idx, "risk_free_rate"] = interpolated_rate
+
     df["forward"] = df["spot"] * np.exp(
         df["risk_free_rate"] * df["day_to_expiration"] / DAYS_PER_YEAR
     )
@@ -53,7 +55,7 @@ def compute_forward(df_options: pd.DataFrame, df_rates: pd.DataFrame) -> pd.Data
         .ffill()
         .reset_index()
     )
-    return df.drop(columns=list(TENOR_TO_PERIOD.keys()) + ["forward"]).merge(
+    return df.drop(columns=tenor_keys + ["forward"]).merge(
         df_forward, how="left", on=["ticker", "date", "expiration"]
     )
 
