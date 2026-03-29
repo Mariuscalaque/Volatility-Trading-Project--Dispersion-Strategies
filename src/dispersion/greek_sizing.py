@@ -85,6 +85,7 @@ def apply_greek_neutral_sizing(
     base_notional: float,
     index_weight_col: str = "weight",
     component_weight_col: str = "weight",
+    ratio_cap: float | None = None,
 ) -> pd.DataFrame:
     """Return df_component_leg with its weight column rescaled for greek neutrality.
 
@@ -109,6 +110,10 @@ def apply_greek_neutral_sizing(
                        A sensible default is the notional of the index leg.
         index_weight_col: Weight column in df_index_leg.
         component_weight_col: Weight column in df_component_leg.
+        ratio_cap: Maximum allowed sizing ratio. When the ratio exceeds this
+                   cap (e.g. because the component greek per unit is near zero),
+                   it is clipped to prevent extreme position sizes. If None,
+                   defaults to the 95th percentile of the ratio distribution.
 
     Returns:
         Copy of df_component_leg with updated weight column.
@@ -122,6 +127,12 @@ def apply_greek_neutral_sizing(
     )
 
     ratio = ratio.fillna(base_notional)
+
+    # Cap extreme ratios to prevent position blow-ups (e.g. when the
+    # component greek per unit is near zero around option expiry).
+    if ratio_cap is None:
+        ratio_cap = ratio.quantile(0.95)
+    ratio = ratio.clip(upper=ratio_cap)
 
     df_result = df_component_leg.copy()
     date_to_ratio = ratio.reindex(df_result["date"])
