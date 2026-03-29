@@ -1,4 +1,4 @@
-from specs import OptionLegSpec
+from src.specs import OptionLegSpec
 
 CALENDAR_SPREAD_1W_1M_ATM_C: list[OptionLegSpec] = [
     {

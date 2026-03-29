@@ -1,4 +1,4 @@
-from stochastic.base import StochasticProcess
+from src.stochastic.base import StochasticProcess
 
 
 class GeometricBrownianMotion(StochasticProcess):

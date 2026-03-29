@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from data.data_loader import DataLoader
+from src.data.data_loader import DataLoader
 
 ROOT_PATH = r"../../.."
 

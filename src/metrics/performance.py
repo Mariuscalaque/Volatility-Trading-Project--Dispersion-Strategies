@@ -1,8 +1,8 @@
 import pandas as pd
 
-from constants import TRADING_DAYS_PER_YEAR
-from metrics.util import returns_to_levels
-from metrics.volatility import realized_volatility
+from src.constants import TRADING_DAYS_PER_YEAR
+from src.metrics.util import returns_to_levels
+from src.metrics.volatility import realized_volatility
 
 
 def realized_returns(returns: pd.Series) -> float:
