@@ -300,7 +300,12 @@ class DispersionBacktester(BacktesterBidAskFromData):
         df_spot["bid"] = df_spot["spot"]
         df_spot["ask"] = df_spot["spot"]
         df_spot["mid"] = df_spot["spot"]
+        # Stocks have trivial greeks: delta=1, no gamma/theta/vega/rho.
         df_spot["delta"] = 1
+        df_spot["gamma"] = 0.0
+        df_spot["theta"] = 0.0
+        df_spot["vega"] = 0.0
+        df_spot["implied_volatility"] = 0.0
         df_options_spot = pd.concat([df_options, df_spot], ignore_index=True)
 
         # Merge positions with option data

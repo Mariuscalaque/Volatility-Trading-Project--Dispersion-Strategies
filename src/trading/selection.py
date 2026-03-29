@@ -74,8 +74,9 @@ def _select_close_target(df: pd.DataFrame, target_col: str, target: float | int,
     missing_cols = set(groupby_cols + [target_col]) - set(df.columns)
     check_is_true(
         len(missing_cols) == 0,
-        f"Error, the following columns {missing_cols} are missingfrom the input dataframe",
+        f"Error, the following columns {missing_cols} are missing from the input dataframe",
     )
-    df["criterion"] = abs(df[target_col] - target)
-    df_minimum_dist = df.groupby(groupby_cols)[["criterion"]].min().reset_index()
-    return df.merge(df_minimum_dist, on=[*groupby_cols, "criterion"], how="inner").drop(columns=["criterion"])
+    df_work = df.copy()
+    df_work["criterion"] = abs(df_work[target_col] - target)
+    df_minimum_dist = df_work.groupby(groupby_cols)[["criterion"]].min().reset_index()
+    return df_work.merge(df_minimum_dist, on=[*groupby_cols, "criterion"], how="inner").drop(columns=["criterion"])

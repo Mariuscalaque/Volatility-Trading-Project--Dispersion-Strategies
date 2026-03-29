@@ -108,29 +108,43 @@ def implied_volatility_black_scholes(
     tol: float = 1e-6,
     max_iterations: int = 100,
 ) -> np.ndarray[Any, np.dtype[np.floating[Any]]] | pd.Series:
-    """
+    """Implied volatility via Newton-Raphson on the Black-Scholes formula.
+
     Args:
         market_price: observed market price of the option
         S: underlying price
         K: strike price
         T: time to maturity (in years)
         r: risk-free rate
-        option_type: 'call' or 'put'
+        option_type: 'C' or 'P'
         initial_guess: initial guess for volatility
         tol: tolerance for convergence
         max_iterations: maximum number of iterations
+
+    Returns:
+        Implied volatility array.  Elements where the solver fails to
+        converge (e.g. near-zero vega) are set to NaN.
     """
-    sigma = np.full_like(S, initial_guess)
+    sigma = np.full_like(S, initial_guess, dtype=float)
 
     for _ in range(max_iterations):
         price = black_scholes_price(S, K, T, r, sigma, option_type)
         vega = vega_black_scholes(S, K, T, r, sigma)
 
         price_diff = market_price - price
-        sigma += price_diff / vega
 
-        if np.all(np.abs(price_diff) < tol):
+        # Guard: skip update where vega ≈ 0 (deep OTM/ITM or near expiry)
+        safe_mask = np.abs(vega) > 1e-12
+        sigma = np.where(safe_mask, sigma + price_diff / np.where(safe_mask, vega, 1.0), sigma)
+        # Clamp to prevent negative or extreme volatilities
+        sigma = np.clip(sigma, 1e-6, 10.0)
+
+        if np.all(np.abs(price_diff[safe_mask]) < tol) if np.any(safe_mask) else True:
             break
+
+    # Mark non-converged points as NaN
+    final_price = black_scholes_price(S, K, T, r, sigma, option_type)
+    sigma = np.where(np.abs(market_price - final_price) < tol * 100, sigma, np.nan)
 
     return sigma
 

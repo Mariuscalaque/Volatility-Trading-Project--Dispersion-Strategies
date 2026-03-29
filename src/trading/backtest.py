@@ -6,6 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from src.data.option_db import OptionLoader
+from src.constants import TRADING_DAYS_PER_YEAR
 from src.util import check_is_true, ffill_options_data
 
 
@@ -50,23 +51,27 @@ class StrategyBacktester:
         df_positions["dv"] = df_positions.groupby(["option_id"])["mid"].diff().fillna(0)
         df_positions["dsigma"] = df_positions.groupby(["option_id"])["implied_volatility"].diff().fillna(0)
         df_positions["dS"] = df_positions.groupby(["option_id"])["spot"].diff().fillna(0)
-        df_positions["dt"] = 1
+        # dt in year fraction: Black-Scholes theta is ∂V/∂t with t in years,
+        # so one trading day corresponds to dt = 1/252.
+        df_positions["dt"] = 1 / TRADING_DAYS_PER_YEAR
         logging.info("Append previous period greeks for P&L calculations.")
         # pandas 2.x removed fillna(method=...), use .bfill() instead
         df_positions["prev_theta"] = df_positions.groupby("option_id")["theta"].shift(1).bfill()
         df_positions["prev_gamma"] = df_positions.groupby("option_id")["gamma"].shift(1).bfill()
         df_positions["prev_delta"] = df_positions.groupby("option_id")["delta"].shift(1).bfill()
         df_positions["prev_vega"] = df_positions.groupby("option_id")["vega"].shift(1).bfill()
-        df_positions["obs_date"] = df_positions["entry_date"].apply(lambda x: x - pd.Timedelta(days=1))
+        # Use previous business day (not calendar day) so that Monday trades
+        # look up Friday's NAV instead of a non-existent Sunday entry.
+        df_positions["obs_date"] = df_positions["entry_date"] - pd.offsets.BDay(1)
         df_pnl = pd.DataFrame(
             [[0, 0, 0, 0, 0, 0, 0, 0]],
             columns=self._PNL_COLS,
-            index=[df_positions["date"].min() - pd.Timedelta(days=1)],
+            index=[df_positions["date"].min() - pd.offsets.BDay(1)],
         )
         df_nav = pd.DataFrame(
             [[1]],
             columns=["NAV"],
-            index=[df_positions["date"].min() - pd.Timedelta(days=1)],
+            index=[df_positions["date"].min() - pd.offsets.BDay(1)],
         )
         logging.info(
             "Starting backtest computation over %s unique dates.",
@@ -126,7 +131,12 @@ class StrategyBacktester:
         df_spot["bid"] = df_spot["spot"]
         df_spot["ask"] = df_spot["spot"]
         df_spot["mid"] = df_spot["spot"]
+        # Stocks have trivial greeks: delta=1, no gamma/theta/vega/rho.
         df_spot["delta"] = 1
+        df_spot["gamma"] = 0.0
+        df_spot["theta"] = 0.0
+        df_spot["vega"] = 0.0
+        df_spot["implied_volatility"] = 0.0
         df_options_spot = pd.concat([df_options, df_spot])
         df_positions_extended = df_positions_cp.merge(df_options_spot, how="left", on=["ticker", "option_id", "date"])
         # To ensure not trade after expiration

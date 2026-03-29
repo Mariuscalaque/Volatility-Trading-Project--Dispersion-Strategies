@@ -130,10 +130,21 @@ def apply_greek_neutral_sizing(
 
     # Cap extreme ratios to prevent position blow-ups (e.g. when the
     # component greek per unit is near zero around option expiry).
+    # The 95th percentile adapts to each greek flavor's natural scale:
+    # theta/gamma ratios are O(1) while vega ratios are O(0.001) because
+    # the index notional in the numerator carries the /spot normalization.
     if ratio_cap is None:
         ratio_cap = ratio.quantile(0.95)
     ratio = ratio.clip(upper=ratio_cap)
 
+    # The ratio replaces the component weight entirely.  This is correct
+    # because:
+    #   - The numerator (index notional) already includes the index weights
+    #     (which carry the /spot normalization from _select_options).
+    #   - The denominator is the *unweighted* sum of per-contract greeks for
+    #     the component straddle.
+    # Thus ratio × Σ(greek_component) = |notional_greek_index|, ensuring
+    # greek neutrality.  The sign is always positive (long vol on component).
     df_result = df_component_leg.copy()
     date_to_ratio = ratio.reindex(df_result["date"])
     date_to_ratio.index = df_result.index

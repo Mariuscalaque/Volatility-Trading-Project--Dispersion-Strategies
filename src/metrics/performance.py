@@ -37,20 +37,24 @@ def excess_return(
     risk_free_rate: float | pd.Series = 0.0,
     annualized_risk_free_rate: bool = True,
 ) -> pd.Series:
-    """Compute the annualized Sharpe ratio of a daily returns series.
+    """Compute excess returns over the risk-free rate.
 
     Parameters:
         returns: Series of daily returns.
-        risk_free_rate: Annualized risk free rate or daily risk free rate series.
+        risk_free_rate: Risk-free rate. Annualized by default, or daily if
+                        ``annualized_risk_free_rate=False``.
+        annualized_risk_free_rate: Whether ``risk_free_rate`` is expressed as
+                                   an annualized figure (default True).
 
     Returns:
-        Annualized Sharpe ratio.
+        Series of daily excess returns.
     """
-    return returns - (
-        risk_free_rate
+    daily_rf = (
+        risk_free_rate / TRADING_DAYS_PER_YEAR
         if annualized_risk_free_rate
-        else annualized_risk_free_rate / TRADING_DAYS_PER_YEAR
+        else risk_free_rate
     )
+    return returns - daily_rf
 
 
 def drawdown(returns: pd.Series) -> pd.Series:

@@ -65,33 +65,31 @@ def interpolate_rates(
     tenors: pd.Series | np.ndarray,
     rate_curve: pd.Series | np.ndarray,
 ) -> float:
-    """Interpolate rates linearly.
+    """Linearly interpolate the rate curve at a given tenor.
+
+    Flat extrapolation is used outside the range of known tenors
+    (i.e. the nearest boundary rate is returned).
 
     Args:
-        eval_tenor (float): The tenor to evaluate the rate at.
-        tenors (pd.Series | np.ndarray): The known tenors.
-        rate_curve (pd.Series | np.ndarray): The known rates.
+        eval_tenor: The tenor (in year fractions) to evaluate.
+        tenors: Known tenor points (need not be sorted).
+        rate_curve: Corresponding rates for each tenor.
+
     Returns:
-        The interpolated rate.
+        The interpolated (or extrapolated) rate.
     """
-    tenors = np.asarray(tenors)
-    rate_curve = np.asarray(rate_curve)
+    tenors = np.asarray(tenors, dtype=float)
+    rate_curve = np.asarray(rate_curve, dtype=float)
     check_is_true(
         len(tenors) == len(rate_curve),
         "Tenors and rate curve must have the same length.",
     )
-    if eval_tenor <= tenors.min():
-        return rate_curve[tenors.argmin()]
-    if eval_tenor >= tenors.max():
-        return rate_curve[tenors.argmax()]
 
-    idx_above = tenors[tenors >= eval_tenor].argmin()
-    idx_below = tenors[tenors <= eval_tenor].argmax()
+    # Sort by tenor for correct interpolation
+    sort_idx = np.argsort(tenors)
+    tenors_sorted = tenors[sort_idx]
+    rates_sorted = rate_curve[sort_idx]
 
-    tenor_above, tenor_below = tenors[idx_above], tenors[idx_below]
-    rate_above, rate_below = rate_curve[idx_above], rate_curve[idx_below]
-
-    weight_above = (eval_tenor - tenor_below) / (tenor_above - tenor_below)
-    weight_below = 1 - weight_above
-
-    return weight_below * rate_below + weight_above * rate_above
+    # np.interp handles exact matches, boundary extrapolation (flat),
+    # and intermediate interpolation in a single vectorised call.
+    return float(np.interp(eval_tenor, tenors_sorted, rates_sorted))
