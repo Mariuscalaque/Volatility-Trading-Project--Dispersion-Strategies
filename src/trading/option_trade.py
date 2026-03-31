@@ -309,7 +309,7 @@ class VarianceSwap(OptionTrade):
             selected_option_df_pvt = selected_option_df_pvt[["date", "option_id", "weight"]]
             selected_option_df = selected_option_df.merge(selected_option_df_pvt, on=["date", "option_id"])
             selected_option_df = selected_option_df.loc[selected_option_df["date"].dt.day_of_week.isin(rebal_week_day)]
-            print(selected_option_df)
+            logging.debug("Selected %d options for variance swap leg.", len(selected_option_df))
             selected_option_df_norm = (
                 selected_option_df.groupby("date")
                 .apply(lambda df_group: cls._normalize_strike_weights(df_group, target_weight=weight))

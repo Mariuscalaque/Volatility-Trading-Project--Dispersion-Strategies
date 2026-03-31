@@ -20,16 +20,20 @@ def realized_returns(returns: pd.Series) -> float:
 def sharpe_ratio(returns: pd.Series, risk_free_rate: float | pd.Series = 0.0) -> float:
     """Compute the annualized Sharpe ratio of a daily returns series.
 
+    Uses the standard definition: SR = E[R - Rf] / σ(R - Rf), annualized.
+    When ``risk_free_rate`` is a constant (the default case), σ(R - Rf) = σ(R)
+    and the two formulations are equivalent. When ``risk_free_rate`` is a
+    time-varying Series, using σ(excess) is the correct definition.
+
     Parameters:
         returns: Series of daily returns.
-        risk_free_rate: Annualized risk free rate or daily risk free rate series.
+        risk_free_rate: Annualized risk-free rate (scalar or Series).
 
     Returns:
         Annualized Sharpe ratio.
     """
-    return (
-        realized_returns(excess_return(returns, risk_free_rate))
-    ) / realized_volatility(returns)
+    excess = excess_return(returns, risk_free_rate)
+    return realized_returns(excess) / realized_volatility(excess)
 
 
 def excess_return(

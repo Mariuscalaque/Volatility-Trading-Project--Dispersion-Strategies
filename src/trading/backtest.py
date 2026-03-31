@@ -79,7 +79,7 @@ class StrategyBacktester:
         )
 
         drifted_positions = []
-        for d in tqdm(df_positions["date"].sort_values().unique()):
+        for d in tqdm(np.sort(df_positions["date"].unique())):
             df_day = df_positions[df_positions["date"] == d].copy()
             df_day = df_day.merge(df_nav, left_on="obs_date", right_index=True, how="left")
             df_day["scaled_weight"] = (df_day["weight"] * df_day["NAV"]).fillna(df_day["weight"])
@@ -113,10 +113,9 @@ class StrategyBacktester:
 
     @staticmethod
     def _preprocess_positions(df_positions: pd.DataFrame):
-        """Extend the position dataframe with option info + date shifting"""
-        logging.info("Shifting +1 business to ensure valid trading result.")
+        """Extend the position dataframe with option info (greeks, prices, spot)."""
+        logging.info("Preprocessing positions: loading option data and merging.")
         df_positions_cp = df_positions.copy()
-        # df_positions_cp["date"] = df_positions_cp["date"].apply(lambda x: x + pd.offsets.BDay(1))
         start, end = df_positions_cp["date"].min(), df_positions_cp["date"].max()
         tickers = df_positions_cp["ticker"].unique().tolist()
         df_options = OptionLoader.load_data(start, end, process_kwargs={"ticker": tickers})

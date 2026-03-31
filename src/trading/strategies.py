@@ -86,7 +86,7 @@ REVERSE_CALENDAR_SPREAD_1W_1M_ATM_C: list[OptionLegSpec] = [
 REVERSE_CALENDAR_SPREAD_1M_6M_ATM_C: list[OptionLegSpec] = [
     {
         "day_to_expiry_target": 7 * 4,
-        "strike_target": 1 / 4,
+        "strike_target": 1.0,
         "strike_col": "moneyness",
         "call_or_put": "C",
         "weight": 1,
