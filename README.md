@@ -24,9 +24,7 @@ Three sizing flavors are implemented to match the greek notional between the two
 ├── data/                          # Parquet data files (options, rates)
 ├── lectures/                      # Course reference notebooks (Lecture 2–5)
 ├── notebooks/                     # Project notebooks
-│   ├── 01_data_exploration.ipynb
-│   ├── 02_single_leg_delta_hedging.ipynb
-│   └── 03_dispersion_backtest.ipynb
+│   └── Dispersion_Backtest_Project.ipynb
 └── src/
     ├── constants.py           # Trading constants (days/year, tenor mapping)
     ├── rates.py               # Risk-free rate interpolation, forward computation
