@@ -86,6 +86,11 @@ def _prepare_sizing_column(
 
     For theta and vega, the raw column is used directly.
 
+    Note: when greek == "gamma" this function mutates *df* in-place by
+    adding a ``"dollar_gamma"`` column.  Callers must assign the return
+    value for both the index and component DataFrames so that the column
+    is present in both before greek-neutral sizing is applied.
+
     Args:
         df: DataFrame with at least 'gamma' and 'spot' columns.
         greek: Which flavor to size on.
@@ -223,7 +228,10 @@ def generate_dispersion_trades(
 
     # ── Step 2: resolve sizing column (dollar_gamma for Γ) ──
     sizing_col = _prepare_sizing_column(df_index, greek)
-    _prepare_sizing_column(df_component, greek)
+    component_sizing_col = _prepare_sizing_column(df_component, greek)
+    assert sizing_col == component_sizing_col, (
+        f"Sizing column mismatch: index={sizing_col!r}, component={component_sizing_col!r}"
+    )
     logging.info("Sizing column: '%s'", sizing_col)
 
     # ── Step 3: greek-neutral sizing on component leg ──
