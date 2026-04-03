@@ -20,6 +20,7 @@ Usage
 >>> bt.nav  # cumulative NAV DataFrame
 """
 
+import gc
 import logging
 from datetime import datetime
 from typing import Literal
@@ -201,11 +202,13 @@ def generate_dispersion_trades(
     df_index = index_cls._generate_trades(
         start_date, end_date, tickers=index_ticker, legs=index_legs
     )
+    gc.collect()
 
     logging.info("=== DISPERSION [%s-neutral]: Generating component leg (%s) ===", greek, component_ticker)
     df_component = component_cls._generate_trades(
         start_date, end_date, tickers=component_ticker, legs=component_legs
     )
+    gc.collect()
 
     # Align on common trading dates
     common_dates = set(df_index["date"].unique()) & set(df_component["date"].unique())
@@ -235,9 +238,11 @@ def generate_dispersion_trades(
     # ── Step 4: delta-hedge each leg independently ──
     logging.info("=== DISPERSION: Delta hedging %s ===", index_ticker)
     df_index_hedged = DeltaHedgedOptionTrade._hedge_trades(df_index)
+    del df_index; gc.collect()
 
     logging.info("=== DISPERSION: Delta hedging %s ===", component_ticker)
     df_component_hedged = DeltaHedgedOptionTrade._hedge_trades(df_component_sized)
+    del df_component, df_component_sized; gc.collect()
 
     # ── Step 5: combine positions ──
     output_cols = ["date", "option_id", "entry_date", "leg_name", "weight", "ticker"]
@@ -275,8 +280,8 @@ class DispersionBacktester(BacktesterBidAskFromData):
         end = df_positions_cp["date"].max()
         tickers = df_positions_cp["ticker"].unique().tolist()
 
-        # Load option data from the right parquet for each ticker
-        dfs_options = []
+        # Process one ticker at a time to limit peak memory
+        merged_parts = []
         for ticker in tickers:
             loader_cls = _TICKER_TO_LOADER_CLS.get(ticker)
             if loader_cls is None:
@@ -284,34 +289,33 @@ class DispersionBacktester(BacktesterBidAskFromData):
                 continue
             logging.info("Loading %s via %s", ticker, loader_cls.__name__)
             df_t = loader_cls.load_data(start, end, process_kwargs={"ticker": ticker})
-            dfs_options.append(df_t)
 
-        df_options = pd.concat(dfs_options, ignore_index=True)
+            # Synthetic spot rows for delta-hedge positions (option_id == ticker)
+            df_spot = (
+                df_t[["date", "spot"]].drop_duplicates(subset=["date"]).copy()
+            )
+            df_spot["ticker"] = ticker
+            df_spot["option_id"] = ticker
+            for col in ("bid", "ask", "mid"):
+                df_spot[col] = df_spot["spot"]
+            df_spot["delta"] = 1
+            for col in ("gamma", "theta", "vega", "implied_volatility"):
+                df_spot[col] = 0.0
 
-        # Synthetic spot rows for delta-hedge positions (option_id == ticker).
-        # Uses first() aggregation instead of groupby().apply(pd.Series)
-        # to avoid pandas 2.x dropping groupby columns inside the lambda.
-        df_spot = (
-            df_options.groupby(["date", "ticker"])[["spot"]]
-            .first()
-            .reset_index()
-        )
-        df_spot["option_id"] = df_spot["ticker"]
-        df_spot["bid"] = df_spot["spot"]
-        df_spot["ask"] = df_spot["spot"]
-        df_spot["mid"] = df_spot["spot"]
-        # Stocks have trivial greeks: delta=1, no gamma/theta/vega/rho.
-        df_spot["delta"] = 1
-        df_spot["gamma"] = 0.0
-        df_spot["theta"] = 0.0
-        df_spot["vega"] = 0.0
-        df_spot["implied_volatility"] = 0.0
-        df_options_spot = pd.concat([df_options, df_spot], ignore_index=True)
+            df_options_spot = pd.concat([df_t, df_spot], ignore_index=True)
+            del df_t, df_spot; gc.collect()
 
-        # Merge positions with option data
-        df_extended = df_positions_cp.merge(
-            df_options_spot, how="left", on=["ticker", "option_id", "date"]
-        )
+            # Merge only this ticker's positions
+            pos_ticker = df_positions_cp[df_positions_cp["ticker"] == ticker]
+            df_merged = pos_ticker.merge(
+                df_options_spot, how="left", on=["ticker", "option_id", "date"]
+            )
+            del df_options_spot; gc.collect()
+            merged_parts.append(df_merged)
+
+        df_extended = pd.concat(merged_parts, ignore_index=True)
+        del merged_parts; gc.collect()
+
         # Do not trade after expiration
         df_extended = df_extended[
             (df_extended["date"] <= df_extended["expiration"])

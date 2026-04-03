@@ -51,9 +51,10 @@ class StrategyBacktester:
         df_positions["dv"] = df_positions.groupby(["option_id"])["mid"].diff().fillna(0)
         df_positions["dsigma"] = df_positions.groupby(["option_id"])["implied_volatility"].diff().fillna(0)
         df_positions["dS"] = df_positions.groupby(["option_id"])["spot"].diff().fillna(0)
-        # dt in year fraction: Black-Scholes theta is ∂V/∂t with t in years,
-        # so one trading day corresponds to dt = 1/252.
-        df_positions["dt"] = 1 / TRADING_DAYS_PER_YEAR
+        # dt in calendar days: theta in the data is per-calendar-day (∂V/∂day).
+        # Between consecutive trading dates this is 1 (Mon→Tue … Thu→Fri),
+        # 3 (Fri→Mon), or more across holidays.
+        df_positions["dt"] = df_positions.groupby("option_id")["date"].diff().dt.days.fillna(1)
         logging.info("Append previous period greeks for P&L calculations.")
         # pandas 2.x removed fillna(method=...), use .bfill() instead
         df_positions["prev_theta"] = df_positions.groupby("option_id")["theta"].shift(1).bfill()

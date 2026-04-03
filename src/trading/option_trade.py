@@ -1,3 +1,4 @@
+import gc
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -85,6 +86,7 @@ class OptionTradeABC(ABC):
         df_trades_daily = cls._convert_trades_to_timeseries(df_trades)
         # merge back to get option data for the df_trades
         df_trades_daily = df_trades_daily.merge(df_options, on=["date", "option_id", "ticker"], how="left")
+        del df_options; gc.collect()  # free raw option data (~350MB for SPY)
         df_trades_daily = df_trades_daily[df_trades_daily["date"].between(start_date, end_date)]
         df_trades_daily = df_trades_daily.drop_duplicates(subset=["date", "leg_name", "option_id"])
         df_trades_daily = ffill_options_data(df_trades_daily)
@@ -232,17 +234,21 @@ class DeltaHedgedOptionTrade(OptionTrade):
         """
         logging.info("Applying delta hedging to df_trades")
 
-        # Compute hedge weight per (date, ticker, entry_date) group
-        # using safe aggregation — no .apply(lambda) that accesses groupby keys.
+        # Aggregate hedge across ALL active entries per (date, ticker).
+        # Using (date, ticker, entry_date) would create N rows per date with the
+        # same option_id=ticker; the subsequent groupby("option_id").diff() in the
+        # backtester would then assign dv=0 to N-1 of them, under-weighting the
+        # hedge.  Summing across entries fixes this.
         df_trades["_hedge_delta"] = df_trades["delta"] * df_trades["weight"]
         df_hedge = (
-            df_trades.groupby(["date", "ticker", "entry_date"])["_hedge_delta"]
+            df_trades.groupby(["date", "ticker"])["_hedge_delta"]
             .sum()
             .reset_index()
         )
         df_hedge = df_hedge.rename(columns={"_hedge_delta": "weight"})
         df_hedge["weight"] = -df_hedge["weight"]
         df_hedge["option_id"] = df_hedge["ticker"]
+        df_hedge["entry_date"] = df_hedge["date"]
         df_hedge["expiration"] = df_hedge["date"] + pd.offsets.BusinessDay(n=1)
         df_hedge["leg_name"] = "DELTA_HEDGING"
         df_trades = df_trades.drop(columns=["_hedge_delta"])

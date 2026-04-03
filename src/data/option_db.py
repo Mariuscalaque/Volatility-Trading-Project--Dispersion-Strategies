@@ -59,7 +59,7 @@ class OptionLoader(DataLoader):
 class SPYOptionLoader(OptionLoader):
     @classmethod
     def _get_path(cls) -> str:
-        return str(ROOT_PATH / "data" / "spy_2020_2022.parquet")
+        return str(ROOT_PATH / "data" / "spy_2020_2022_dte90.parquet")
 
     @classmethod
     def _get_valid_date_range(cls) -> tuple[datetime, datetime]:
