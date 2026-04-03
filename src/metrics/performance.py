@@ -99,3 +99,83 @@ def calmar_ratio(returns: pd.Series) -> float:
     if maximum_drawdown == 0:
         return float("inf")
     return annualized_return / maximum_drawdown
+
+
+def rolling_sharpe_ratio(
+    returns: pd.Series,
+    window: int = 126,
+    risk_free_rate: float = 0.0,
+) -> pd.Series:
+    """Compute rolling annualized Sharpe ratio.
+
+    Parameters:
+        returns: Series of daily returns.
+        window: Rolling window in trading days (default 126 ≈ 6 months).
+        risk_free_rate: Annualized risk-free rate (scalar, default 0).
+
+    Returns:
+        Series of rolling annualized Sharpe ratios.
+    """
+    daily_rf = risk_free_rate / TRADING_DAYS_PER_YEAR
+    excess = returns - daily_rf
+    rolling_mean = excess.rolling(window).mean() * TRADING_DAYS_PER_YEAR
+    rolling_std = excess.rolling(window).std() * (TRADING_DAYS_PER_YEAR ** 0.5)
+    return (rolling_mean / rolling_std).rename("rolling_sharpe")
+
+
+def sortino_ratio(
+    returns: pd.Series,
+    risk_free_rate: float = 0.0,
+    target_return: float = 0.0,
+) -> float:
+    """Compute the annualized Sortino ratio from a daily returns series.
+
+    Uses downside deviation (returns below ``target_return``) as the risk
+    measure instead of total standard deviation.
+
+    Parameters:
+        returns: Series of daily returns.
+        risk_free_rate: Annualized risk-free rate (default 0).
+        target_return: Minimum acceptable return threshold (default 0).
+
+    Returns:
+        Annualized Sortino ratio.
+    """
+    daily_rf = risk_free_rate / TRADING_DAYS_PER_YEAR
+    excess = returns - daily_rf
+    downside = excess[excess < target_return]
+    downside_std = downside.std() * (TRADING_DAYS_PER_YEAR ** 0.5)
+    if downside_std == 0:
+        return float("inf")
+    return realized_returns(excess) / downside_std
+
+
+def information_ratio(
+    returns: pd.Series,
+    benchmark_returns: pd.Series,
+) -> float:
+    """Compute the annualized Information Ratio.
+
+    IR = annualized active return / annualized tracking error.
+
+    Parameters:
+        returns: Series of daily strategy returns.
+        benchmark_returns: Series of daily benchmark returns.
+
+    Returns:
+        Annualized Information Ratio.
+    """
+    active = returns - benchmark_returns
+    return realized_returns(active) / realized_volatility(active)
+
+
+def hit_rate(returns: pd.Series) -> float:
+    """Compute the hit rate (percentage of positive return days).
+
+    Parameters:
+        returns: Series of daily returns.
+
+    Returns:
+        Fraction of days with positive returns (0–1).
+    """
+    return (returns > 0).mean()
