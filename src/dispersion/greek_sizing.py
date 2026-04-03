@@ -71,9 +71,10 @@ def compute_sizing_ratio(
     ratio = np.where(denominator != 0, numerator / denominator, np.nan)
     ratio = pd.Series(ratio, index=numerator.index)
     # Forward-fill to carry the last valid ratio forward when the denominator
-    # is zero on isolated dates.  Callers should filter or cap the result if
-    # stale propagation over many periods is undesirable.
-    ratio = ratio.ffill()
+    # is zero on isolated dates.  Back-fill first so that early NaNs (before
+    # any valid ratio exists) are seeded from the first observed value rather
+    # than being left as NaN for callers to handle.
+    ratio = ratio.bfill().ffill()
 
     return ratio
 
@@ -135,6 +136,10 @@ def apply_greek_neutral_sizing(
     # the index notional in the numerator carries the /spot normalization.
     if ratio_cap is None:
         ratio_cap = ratio.quantile(0.95)
+    # Guard: if ratio_cap is NaN (e.g. all ratio values are NaN), fall back
+    # to base_notional so that clip() has a defined upper bound.
+    if ratio_cap is None or np.isnan(ratio_cap):
+        ratio_cap = base_notional
     ratio = ratio.clip(upper=ratio_cap)
 
     # The ratio replaces the component weight entirely.  This is correct

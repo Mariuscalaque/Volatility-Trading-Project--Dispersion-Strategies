@@ -48,6 +48,8 @@ class StrategyBacktester:
         df_positions = self.apply_tcost(df_positions_raw, **tcost_args).sort_values(["option_id", "date"])
 
         logging.info("Computing period to period difference, for P&L calculations.")
+        # Note: delta-hedge rows use option_id = ticker (e.g. "SPY"), so groupby("option_id").diff()
+        # correctly computes daily stock price changes across all entry dates for each ticker.
         df_positions["dv"] = df_positions.groupby(["option_id"])["mid"].diff().fillna(0)
         df_positions["dsigma"] = df_positions.groupby(["option_id"])["implied_volatility"].diff().fillna(0)
         df_positions["dS"] = df_positions.groupby(["option_id"])["spot"].diff().fillna(0)
@@ -92,16 +94,19 @@ class StrategyBacktester:
             df_day["residual_pnl"] = df_day["pnl"] - df_day["delta_pnl"] - df_day["gamma_pnl"] - df_day["theta_pnl"] - df_day["vega_pnl"]
             df_day["leverage"] = df_day["scaled_weight"] * df_day["spot"]
             df_day["cashflow"] = 0.0
+            # Use mid price as a proxy for option value at entry and at expiration.
+            # At expiration, options settle at intrinsic value; using mid here is a
+            # simplification (the ffill in ffill_options_data may carry the previous
+            # day's mid to the expiration date, which is an acceptable approximation).
             df_day.loc[df_day["entry_date"] == df_day["date"], "cashflow"] = -df_day["scaled_weight"] * df_day["mid"]
             df_day.loc[df_day["expiration"] == df_day["date"], "cashflow"] = df_day["scaled_weight"] * df_day["mid"]
 
             df_pnl = pd.concat([df_pnl, df_day.groupby("date")[self._PNL_COLS].sum()])
-            if d not in df_nav.index:
-                # Find latest available.
-                latest_nav = df_nav[df_nav.index == df_nav.index.max()].iloc[0]
-            else:
-                latest_nav = df_nav.loc[d]
-            df_nav.loc[d] = latest_nav + df_pnl.loc[d, "pnl"]
+            # NAV(d) = NAV(d-1) + PnL(d).
+            # Always look up the last recorded NAV strictly before date d so that
+            # we never accidentally read a stale or partially-updated value for d.
+            prev_nav = df_nav[df_nav.index < d].iloc[-1]["NAV"] if (df_nav.index < d).any() else 1.0
+            df_nav.loc[d] = prev_nav + df_pnl.loc[d, "pnl"]
             drifted_positions.append(df_day)
 
         logging.info("Backtest computation completed.")

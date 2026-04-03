@@ -149,7 +149,9 @@ class OptionTradeABC(ABC):
             logging.info("Selecting options for leg: %s using the rules:\n%s", leg_name, leg)
             selected_option_df = select_options(df_options, **leg)
             selected_option_df["leg_name"] = leg_name
-            selected_option_df["weight"] = (weight / selected_option_df["spot"].where(selected_option_df["spot"] != 0, np.nan)).ffill()
+            selected_option_df["weight"] = (
+                weight / selected_option_df["spot"].where(selected_option_df["spot"] != 0, np.nan)
+            ).ffill().bfill()
             selected_option_df = selected_option_df[selected_option_df["date"].dt.day_of_week.isin(rebal_week_day)]
             df_list.append(selected_option_df.rename(columns={"date": "entry_date"}))
 
