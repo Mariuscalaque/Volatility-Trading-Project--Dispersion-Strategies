@@ -58,6 +58,47 @@ class _AAPLTrade(AAPLOptionLoader, OptionTradeABC):
     pass
 
 
+# ---------------------------------------------------------------------------
+# Straddle leg factory
+# ---------------------------------------------------------------------------
+
+
+def make_straddle_legs(
+    dte_target: int, weight_sign: float, ticker_label: str
+) -> list[dict]:
+    """Create straddle leg specs (put + call) for a given DTE target.
+
+    Parameters:
+        dte_target: Days-to-expiry target for the options.
+        weight_sign: Positive for long straddle, negative for short.
+        ticker_label: Ticker string used in the leg name.
+
+    Returns:
+        List of two leg-spec dicts (put then call).
+    """
+    n_weeks = max(dte_target // 7, 1)
+    return [
+        {
+            "day_to_expiry_target": dte_target,
+            "strike_target": -0.5,
+            "strike_col": "delta",
+            "call_or_put": "P",
+            "weight": weight_sign / n_weeks,
+            "leg_name": f"{['Short','Long'][weight_sign>0]} ATM Put {ticker_label} {dte_target}d",
+            "rebal_week_day": [2],
+        },
+        {
+            "day_to_expiry_target": dte_target,
+            "strike_target": 0.5,
+            "strike_col": "delta",
+            "call_or_put": "C",
+            "weight": weight_sign / n_weeks,
+            "leg_name": f"{['Short','Long'][weight_sign>0]} ATM Call {ticker_label} {dte_target}d",
+            "rebal_week_day": [2],
+        },
+    ]
+
+
 _TICKER_TO_TRADE_CLS: dict[str, type] = {
     "SPY": _SPYTrade,
     "AAPL": _AAPLTrade,

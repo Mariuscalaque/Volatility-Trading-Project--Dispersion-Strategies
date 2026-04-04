@@ -179,3 +179,49 @@ def hit_rate(returns: pd.Series) -> float:
         Fraction of days with positive returns (0–1).
     """
     return (returns > 0).mean()
+
+
+def metrics_from_returns(r: pd.Series, label: str) -> dict:
+    """Build a summary-metrics dict from a daily returns series.
+
+    Parameters:
+        r: Series of daily returns.
+        label: Strategy name for the row.
+
+    Returns:
+        Dict with keys Strategy, Ann. Return (%), Ann. Volatility (%),
+        Sharpe Ratio, Max Drawdown (%), Calmar Ratio, Avg Exposure.
+    """
+    return {
+        "Strategy": label,
+        "Ann. Return (%)": round(realized_returns(r) * 100, 2),
+        "Ann. Volatility (%)": round(realized_volatility(r) * 100, 2),
+        "Sharpe Ratio": round(sharpe_ratio(r), 3),
+        "Max Drawdown (%)": round(max_drawdown(r) * 100, 2),
+        "Calmar Ratio": round(calmar_ratio(r), 3),
+        "Avg Exposure": "1.000",
+    }
+
+
+def period_metrics(returns: pd.Series, label: str) -> dict:
+    """Compute extended period metrics for IS/OOS analysis.
+
+    Parameters:
+        returns: Series of daily returns.
+        label: Period label for the row.
+
+    Returns:
+        Dict with keys Period, Ann. Return (%), Ann. Vol (%), Sharpe,
+        Sortino, Max DD (%), Calmar, Hit Rate (%).
+    """
+    return {
+        "Period": label,
+        "Ann. Return (%)": round(realized_returns(returns) * 100, 2),
+        "Ann. Vol (%)": round(realized_volatility(returns) * 100, 2),
+        "Sharpe": round(sharpe_ratio(returns), 3),
+        "Sortino": round(sortino_ratio(returns), 3),
+        "Max DD (%)": round(max_drawdown(returns) * 100, 2),
+        "Calmar": round(calmar_ratio(returns), 3),
+        "Hit Rate (%)": round(hit_rate(returns) * 100, 1),
+    }
+    return (returns > 0).mean()

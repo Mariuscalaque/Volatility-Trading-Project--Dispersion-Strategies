@@ -99,3 +99,25 @@ def extract_spot_from_options(df_options: pd.DataFrame) -> pd.DataFrame:
         .sort_values("date")
         .reset_index(drop=True)
     )
+
+
+def extract_atm_iv(df_opts: pd.DataFrame) -> pd.Series:
+    """Extract daily ATM implied volatility (closest to moneyness=1, 2–6 week maturity).
+
+    Filters options with 14–45 DTE, picks the strike closest to moneyness=1
+    for each date, and returns a deduplicated Series.
+
+    Parameters:
+        df_opts: Options DataFrame with columns *day_to_expiration*,
+                 *moneyness*, *implied_volatility*, *date*.
+
+    Returns:
+        Series of daily ATM implied volatility, indexed by date.
+    """
+    df = df_opts[
+        (df_opts["day_to_expiration"] >= 14) & (df_opts["day_to_expiration"] <= 45)
+    ].copy()
+    df["abs_moneyness_diff"] = (df["moneyness"] - 1.0).abs()
+    df = df.sort_values(["date", "abs_moneyness_diff"])
+    df = df.drop_duplicates(subset="date", keep="first")
+    return df.set_index("date")["implied_volatility"].sort_index()

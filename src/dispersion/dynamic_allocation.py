@@ -45,15 +45,23 @@ def compute_correlation_spread_signal(
     w_component: float = 0.07,
     realized_corr_window: int = 30,
 ) -> pd.DataFrame:
-    """Compute the implied-minus-realized correlation spread.
+    """Compute a single-name implied-minus-realized correlation proxy spread.
 
-    Uses a simplified 2-component variance decomposition to extract
-    implied correlation from ATM implied volatilities:
+    Uses a simplified 2-component variance decomposition to extract a
+    *proxy* for implied correlation from ATM implied volatilities:
 
         ρ_impl ≈ (σ²_idx - w²·σ²_cmp - (1-w)²·σ²_idx)
                   / (2·w·(1-w)·σ_cmp·σ_idx)
 
-    The realized correlation is a rolling Pearson correlation of returns.
+    This quantity is not the true average basket correlation of the index.
+    Recovering that object would require options on multiple constituents
+    (or a full covariance model for the basket). With only one component
+    and the index, the output should be interpreted as a *single-name
+    correlation-risk-premium proxy*.
+
+    The realized leg is a rolling Pearson correlation of the index and
+    component returns, so the final spread is also a proxy signal rather
+    than an exact implied-minus-realized basket correlation measure.
 
     Args:
         iv_index: ATM implied volatility of the index (annualized).
@@ -65,7 +73,7 @@ def compute_correlation_spread_signal(
 
     Returns:
         DataFrame with columns ['implied_corr', 'realized_corr', 'corr_spread'],
-        indexed by date.
+        indexed by date. These should be interpreted as proxy quantities.
     """
     common = (
         iv_index.dropna().index
@@ -272,3 +280,74 @@ def apply_dynamic_overlay(
         "dynamic_return": dynamic_returns,
         "exposure": lagged_exposure,
     })
+
+
+# ---------------------------------------------------------------------------
+# Walk-forward (expanding window) overlay — truly out-of-sample
+# ---------------------------------------------------------------------------
+
+
+def compute_expanding_zscore(signal: pd.Series, min_window: int = 63) -> pd.Series:
+    """Compute an expanding-window z-score (no fixed rolling window).
+
+    At each date t, the z-score is computed using *all* data from the start
+    of the series up to t — never any future data.  This avoids the implicit
+    look-ahead that comes from choosing a rolling window length on the full
+    sample.
+
+    z(t) = (signal(t) - mean(signal[0:t])) / std(signal[0:t])
+
+    The first ``min_window`` values are NaN (not enough history).
+
+    Args:
+        signal: Raw signal series, indexed by date.
+        min_window: Minimum observations before emitting a z-score.
+
+    Returns:
+        Series of expanding z-scores.
+    """
+    expanding_mean = signal.expanding(min_periods=min_window).mean()
+    expanding_std = signal.expanding(min_periods=min_window).std()
+    expanding_std = expanding_std.replace(0, np.nan)
+    return ((signal - expanding_mean) / expanding_std).rename("expanding_zscore")
+
+
+def apply_walkforward_dynamic_overlay(
+    static_nav: pd.Series,
+    raw_signal: pd.Series,
+    method: ExposureMethod = "zscore_clipped",
+    min_window: int = 63,
+    threshold: float = 0.0,
+    lag: int = 1,
+) -> pd.DataFrame:
+    """Walk-forward dynamic overlay: expanding z-score → exposure → return.
+
+    Unlike ``apply_dynamic_overlay`` which takes a pre-computed exposure,
+    this function builds the exposure **from scratch** at each date using
+    only past information (expanding window z-score).  This produces a
+    genuinely out-of-sample dynamic return series.
+
+    Args:
+        static_nav: NAV series from the static backtest.
+        raw_signal: Raw (un-z-scored) signal series (e.g. corr_spread).
+        method: Exposure method ('binary', 'zscore_clipped', 'continuous_rank').
+        min_window: Minimum expanding window for z-score estimation.
+        threshold: Threshold for the binary method.
+        lag: Business days to lag the exposure (default 1).
+
+    Returns:
+        DataFrame with same columns as ``apply_dynamic_overlay`` plus
+        'expanding_zscore'.
+    """
+    # Step 1: expanding z-score (only past data at each t)
+    exp_zscore = compute_expanding_zscore(raw_signal, min_window=min_window)
+
+    # Step 2: exposure from the expanding z-score
+    exposure = build_dynamic_exposure(
+        exp_zscore, method=method, threshold=threshold,
+    )
+
+    # Step 3: standard lagged overlay
+    result = apply_dynamic_overlay(static_nav, exposure, lag=lag)
+    result["expanding_zscore"] = exp_zscore.reindex(result.index)
+    return result

@@ -1,62 +1,77 @@
-# Dispersion Trading — θ/Γ/ν-neutral SPY/AAPL
+# Dispersion Trading — SPY/AAPL θ/Γ/ν-neutre
 
-A volatility dispersion trading strategy implemented in Python.
+Projet Python consacré à une stratégie de dispersion longue construite de la façon suivante :
+- vente d’un straddle ATM 1 mois sur SPY,
+- achat d’un straddle ATM 1 mois sur AAPL,
+- couverture delta indépendante sur chaque jambe,
+- ajustement du notionnel grec pour obtenir une neutralité en θ, Γ ou ν.
 
-## Strategy Overview
+## Ce qu’est ce projet
 
-This project implements a long dispersion trade consisting of two legs:
-- **Short volatility on SPY** (index leg): short ATM straddle, carry-type exposure
-- **Long volatility on AAPL** (component leg): long ATM straddle, long gamma exposure
+Ce dépôt étudie l’économie d’un trade de dispersion via une implémentation pratique SPY/AAPL. Le backtest est financièrement cohérent comme stratégie short vol indice contre long vol single-name, et le notebook l’étend avec une analyse de stress, des diagnostics glissants et une surcouche d’allocation dynamique en walk-forward.
 
-The strategy has a short correlation exposure, which provides a natural hedge during
-market stress. Both legs are delta-neutral, with dynamic delta hedging throughout the
-trade lifecycle.
+## Ce que ce projet n’est pas
 
-Three sizing flavors are implemented to match the greek notional between the two legs:
-- **θ-neutral**: theta notional of the short SPY leg matches the long AAPL leg
-- **Γ-neutral**: gamma notional matching
-- **ν-neutral**: vega notional matching
+Ce dépôt n’est **pas** un moteur complet de corrélation implicite indice contre panier. Le repo ne traite qu’un composant face à l’indice ; les sections de « corrélation » doivent donc être lues comme un **proxy single-name SPY/AAPL de prime de risque de corrélation**, et non comme la véritable corrélation implicite moyenne du panier du S&P 500.
 
-## Project Structure
+## Résumé de la stratégie
 
-```
+- **Jambe indice :** vente d’un straddle ATM SPY.
+- **Jambe composant :** achat d’un straddle ATM AAPL.
+- **Couverture :** chaque jambe est couverte séparément en delta.
+- **Sizing :** la jambe AAPL est redimensionnée pour égaliser la jambe SPY en termes de notionnel grec.
+- **Variantes de sizing :** theta-neutre, gamma-dollar-neutre et vega-neutre.
+
+Dans le notebook nettoyé, la principale conclusion empirique est que la surcouche de timing n’est économiquement convaincante que pour la variante theta-neutre, et seulement lorsqu’elle est évaluée dans un cadre walk-forward.
+
+## Structure du dépôt
+
+```text
 .
-├── data/                          # Parquet data files (options, rates)
-├── lectures/                      # Course reference notebooks (Lecture 2–5)
-├── notebooks/                     # Project notebooks
-│   └── Dispersion_Backtest_Project.ipynb
-└── src/
-    ├── constants.py           # Trading constants (days/year, tenor mapping)
-    ├── rates.py               # Risk-free rate interpolation, forward computation
-    ├── specs.py               # TypedDicts: OptionLegSpec, DispersionLegSpec, ...
-    ├── util.py                # Shared utilities
-    ├── data/                  # Data loaders (options DB, rates DB)
-    ├── dispersion/            # Greek-neutral sizing logic (θ/Γ/ν flavors)
-    ├── metrics/               # Performance, volatility, distance metrics
-    ├── pricing/               # Black-Scholes pricing and Greeks
-    ├── stochastic/            # Stochastic process base classes (GBM)
-    ├── surface/               # Volatility surface models (SVI, SSVI, SABR)
-    └── trading/               # Trade generation and backtesting
-        ├── backtest.py        # StrategyBacktester, BacktesterBidAskFromData
-        ├── option_trade.py    # OptionTrade, DeltaHedgedOptionTrade, ...
-        ├── selection.py       # Option selection utilities
-        └── strategies.py     # Pre-defined option strategy leg specs
+├── data/           # Fichiers parquet de taux et d’options
+├── notebooks/      # Notebook principal et copies locales
+├── lectures/       # Notebooks de support du cours
+├── src/data/       # Chargeurs de données
+├── src/dispersion/ # Construction du trade, sizing, robustesse, timing
+├── src/metrics/    # Mesures de performance et de volatilité
+├── src/pricing/    # Utilitaires Black-Scholes et volatilité implicite
+└── src/trading/    # Objets de trade et moteur de backtest
 ```
 
-## Installation
+## Mise en place de l’environnement
+
+Créer un environnement virtuel, puis installer les dépendances du projet :
 
 ```bash
-pip install -e .
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-## Running the Notebooks
+`pywin32` est conservé comme dépendance Windows uniquement, ce qui permet au même fichier de dépendances de s’installer sous Linux et dans Codespaces.
 
-Launch Jupyter from the repository root:
+## Livrable principal
+
+Le notebook principal du projet est :
+
+```text
+notebooks/Dispersion_Backtest_ Project.ipynb
+```
+
+Il contient :
+- les backtests statiques en θ/Γ/ν-neutre,
+- les vérifications de neutralité grecque et delta,
+- les diagnostics sur les périodes de stress,
+- l’analyse du proxy de corrélation single-name,
+- l’allocation dynamique en walk-forward,
+- les tests de robustesse et le test de permutation.
+
+## Smoke test
+
+Pour exécuter un smoke test CLI léger en dehors de Jupyter :
 
 ```bash
-jupyter notebook notebooks/
+.venv/bin/python test_bt.py
 ```
 
-- `01_data_exploration.ipynb` — explore the options data, bid-ask spreads, and implied vols
-- `02_single_leg_delta_hedging.ipynb` — single-leg straddle with delta hedging backtest
-- `03_dispersion_backtest.ipynb` — full dispersion backtest with all three greek-neutral flavors
+Le script lance les trois variantes sur un échantillon plus court et vérifie que la NAV, le PnL et les positions driftées sont bien produits.

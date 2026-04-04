@@ -31,6 +31,7 @@ from src.metrics.performance import (
 from src.metrics.volatility import realized_volatility
 from src.dispersion.dynamic_allocation import (
     compute_signal_zscore,
+    compute_expanding_zscore,
     build_dynamic_exposure,
     apply_dynamic_overlay,
 )
@@ -168,17 +169,20 @@ def run_window_sensitivity(
     raw_signal: pd.Series,
     zscore_windows: list[int] | None = None,
     exposure_method: str = "zscore_clipped",
+    zscore_type: str = "expanding",
 ) -> pd.DataFrame:
-    """Evaluate dynamic strategy under different z-score rolling windows.
+    """Evaluate dynamic strategy under different z-score estimation windows.
 
     Recomputes the z-score with each window, builds exposure, and applies
-    the dynamic overlay.
+    the dynamic overlay. By default, uses an expanding-window z-score to
+    stay consistent with the walk-forward methodology used in the notebook.
 
     Args:
         static_nav: NAV from the static backtest.
         raw_signal: Raw (un-z-scored) signal series.
         zscore_windows: Windows to test (trading days).
         exposure_method: Method for ``build_dynamic_exposure``.
+        zscore_type: ``"expanding"`` or ``"rolling"``.
 
     Returns:
         DataFrame indexed by window with performance metrics.
@@ -188,13 +192,81 @@ def run_window_sensitivity(
 
     rows = []
     for w in zscore_windows:
-        zscore = compute_signal_zscore(raw_signal, window=w)
+        if zscore_type == "expanding":
+            zscore = compute_expanding_zscore(raw_signal, min_window=w)
+        elif zscore_type == "rolling":
+            zscore = compute_signal_zscore(raw_signal, window=w)
+        else:
+            raise ValueError("zscore_type must be 'expanding' or 'rolling'.")
+
         exposure = build_dynamic_exposure(zscore, method=exposure_method)
         result = apply_dynamic_overlay(static_nav, exposure)
         daily_ret = result["dynamic_return"]
         metrics = _compute_metrics(daily_ret)
         metrics["zscore_window"] = w
         metrics["avg_exposure"] = round(result["exposure"].mean(), 3)
+        metrics["zscore_type"] = zscore_type
         rows.append(metrics)
 
     return pd.DataFrame(rows).set_index("zscore_window")
+
+
+def run_signal_permutation_test(
+    static_nav: pd.Series,
+    raw_signal: pd.Series,
+    method: str = "zscore_clipped",
+    min_window: int = 63,
+    n_permutations: int = 1000,
+    seed: int = 42,
+) -> dict:
+    """Test whether the dynamic Sharpe is significantly better than a random signal.
+
+    Procedure:
+    1. Compute the actual walk-forward dynamic Sharpe using the real signal.
+    2. Repeat ``n_permutations`` times with a time-shuffled signal (random
+       permutation of signal *dates*, preserving values).
+    3. Compute the p-value: fraction of permuted Sharpes ≥ actual Sharpe.
+
+    This is a non-parametric test: under H₀ (signal has no timing value),
+    the permuted Sharpes form the null distribution.
+
+    Args:
+        static_nav: NAV series from the static backtest.
+        raw_signal: Raw (un-z-scored) signal series.
+        method: Exposure method for ``apply_walkforward_dynamic_overlay``.
+        min_window: Minimum expanding window for z-score estimation.
+        n_permutations: Number of random permutations.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Dict with keys: actual_sharpe, perm_sharpes (array), p_value, n_permutations.
+    """
+    from src.dispersion.dynamic_allocation import apply_walkforward_dynamic_overlay
+
+    # Actual Sharpe (walk-forward)
+    actual_result = apply_walkforward_dynamic_overlay(
+        static_nav, raw_signal, method=method, min_window=min_window,
+    )
+    actual_sharpe = sharpe_ratio(actual_result["dynamic_return"])
+
+    # Permutation loop
+    rng = np.random.default_rng(seed)
+    perm_sharpes = np.empty(n_permutations)
+    signal_values = raw_signal.values.copy()
+
+    for i in range(n_permutations):
+        shuffled_values = rng.permutation(signal_values)
+        shuffled_signal = pd.Series(shuffled_values, index=raw_signal.index, name=raw_signal.name)
+        perm_result = apply_walkforward_dynamic_overlay(
+            static_nav, shuffled_signal, method=method, min_window=min_window,
+        )
+        perm_sharpes[i] = sharpe_ratio(perm_result["dynamic_return"])
+
+    p_value = (perm_sharpes >= actual_sharpe).mean()
+
+    return {
+        "actual_sharpe": round(actual_sharpe, 4),
+        "perm_sharpes": perm_sharpes,
+        "p_value": round(p_value, 4),
+        "n_permutations": n_permutations,
+    }

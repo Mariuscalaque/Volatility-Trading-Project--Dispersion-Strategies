@@ -73,7 +73,7 @@ Pygments
 pyparsing
 python-dateutil
 pytz
-pywin32
+pywin32; sys_platform == "win32"
 PyYAML
 pyzmq
 requests
