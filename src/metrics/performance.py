@@ -224,4 +224,3 @@ def period_metrics(returns: pd.Series, label: str) -> dict:
         "Calmar": round(calmar_ratio(returns), 3),
         "Hit Rate (%)": round(hit_rate(returns) * 100, 1),
     }
-    return (returns > 0).mean()
