@@ -1,77 +1,141 @@
-# Dispersion Trading — SPY/AAPL θ/Γ/ν-neutre
+# Dispersion Trading -- Strategies theta/gamma/vega-neutres sur SPY/AAPL
 
-Projet Python consacré à une stratégie de dispersion longue construite de la façon suivante :
-- vente d’un straddle ATM 1 mois sur SPY,
-- achat d’un straddle ATM 1 mois sur AAPL,
-- couverture delta indépendante sur chaque jambe,
-- ajustement du notionnel grec pour obtenir une neutralité en θ, Γ ou ν.
+Projet Python realise dans le cadre du cours de Volatility Trading du Master 272 -- Ingenierie Economique et Financiere, Universite Paris-Dauphine (PSL).
 
-## Ce qu’est ce projet
+Forke depuis [BaptisteZloch/Dauphine-Lecture-Volatility](https://github.com/BaptisteZloch/Dauphine-Lecture-Volatility).
 
-Ce dépôt étudie l’économie d’un trade de dispersion via une implémentation pratique SPY/AAPL. Le backtest est financièrement cohérent comme stratégie short vol indice contre long vol single-name, et le notebook l’étend avec une analyse de stress, des diagnostics glissants et une surcouche d’allocation dynamique en walk-forward.
+---
 
-## Ce que ce projet n’est pas
+## Objet
 
-Ce dépôt n’est **pas** un moteur complet de corrélation implicite indice contre panier. Le repo ne traite qu’un composant face à l’indice ; les sections de « corrélation » doivent donc être lues comme un **proxy single-name SPY/AAPL de prime de risque de corrélation**, et non comme la véritable corrélation implicite moyenne du panier du S&P 500.
+Ce depot implemente et backteste une strategie de dispersion longue a deux jambes :
 
-## Résumé de la stratégie
+- **Jambe indice** : vente d'un straddle ATM 1 mois sur SPY (carry leg, short vol).
+- **Jambe composant** : achat d'un straddle ATM 1 mois sur AAPL (dispersion leg, long vol).
+- **Couverture delta** : independante sur chaque sous-jacent.
+- **Sizing grec** : le notionnel de la jambe AAPL est ajuste pour egaliser celui de la jambe SPY en termes de theta, gamma-dollar ou vega.
 
-- **Jambe indice :** vente d’un straddle ATM SPY.
-- **Jambe composant :** achat d’un straddle ATM AAPL.
-- **Couverture :** chaque jambe est couverte séparément en delta.
-- **Sizing :** la jambe AAPL est redimensionnée pour égaliser la jambe SPY en termes de notionnel grec.
-- **Variantes de sizing :** theta-neutre, gamma-dollar-neutre et vega-neutre.
+Le backtest couvre la periode janvier 2020 -- decembre 2022 sur des donnees d'options quotidiennes (parquet).
 
-Dans le notebook nettoyé, la principale conclusion empirique est que la surcouche de timing n’est économiquement convaincante que pour la variante theta-neutre, et seulement lorsqu’elle est évaluée dans un cadre walk-forward.
+## Ce que ce projet n'est pas
 
-## Structure du dépôt
+Ce depot n'est **pas** un moteur complet de correlation implicite indice contre panier. Il ne traite qu'un composant face a l'indice ; les sections de "correlation" doivent donc etre lues comme un proxy single-name de prime de correlation, et non comme une mesure de correlation implicite du panier.
 
-```text
-.
-├── data/           # Fichiers parquet de taux et d’options
-├── notebooks/      # Notebook principal et copies locales
-├── lectures/       # Notebooks de support du cours
-├── src/data/       # Chargeurs de données
-├── src/dispersion/ # Construction du trade, sizing, robustesse, timing
-├── src/metrics/    # Mesures de performance et de volatilité
-├── src/pricing/    # Utilitaires Black-Scholes et volatilité implicite
-└── src/trading/    # Objets de trade et moteur de backtest
+## Contenu du notebook
+
+Le livrable principal est :
+
 ```
-
-## Mise en place de l’environnement
-
-Créer un environnement virtuel, puis installer les dépendances du projet :
-
-```bash
-python -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-```
-
-`pywin32` est conservé comme dépendance Windows uniquement, ce qui permet au même fichier de dépendances de s’installer sous Linux et dans Codespaces.
-
-## Livrable principal
-
-Le notebook principal du projet est :
-
-```text
 notebooks/Dispersion_Backtest_ Project.ipynb
 ```
 
-Il contient :
-- les backtests statiques en θ/Γ/ν-neutre,
-- les vérifications de neutralité grecque et delta,
-- les diagnostics sur les périodes de stress,
-- l’analyse du proxy de corrélation single-name,
-- l’allocation dynamique en walk-forward,
-- les tests de robustesse et le test de permutation.
+Il couvre les etapes suivantes :
+
+1. Backtests statiques en theta-neutre, gamma-dollar-neutre et vega-neutre.
+2. Verifications de neutralite grecque (theta, gamma, vega) et de couverture delta.
+3. Diagnostics sur les periodes de stress (COVID, fin 2022).
+4. Construction et analyse du proxy de correlation implied-minus-realized (single-name).
+5. Allocation dynamique en walk-forward (expanding z-score, pas de look-ahead).
+6. Tests de robustesse (sensibilite aux couts de transaction, au seuil de signal, a la fenetre de z-score) et test de permutation.
+
+La conclusion empirique principale est que la surcouche de timing n'est economiquement convaincante que pour la variante theta-neutre, et seulement lorsqu'elle est evaluee en walk-forward.
+
+## Structure du depot
+
+```text
+.
+├── data/
+│   ├── aapl_2016_2023.parquet
+│   ├── optiondb_2016_2023.parquet/
+│   ├── par-yield-curve-rates-2020-2023.csv
+│   ├── spy_2020_2022.parquet/
+│   ├── spy_2020_2022_atm.parquet
+│   └── spy_2020_2022_dte90.parquet
+├── lectures/
+│   ├── Lecture_2.ipynb
+│   ├── Lecture_3.ipynb
+│   ├── Lecture_4.ipynb
+│   └── Lecture_5.ipynb
+├── notebooks/
+│   └── Dispersion_Backtest_ Project.ipynb
+├── src/
+│   ├── __init__.py
+│   ├── constants.py
+│   ├── rates.py
+│   ├── specs.py
+│   ├── util.py
+│   ├── data/
+│   │   ├── data_loader.py          # Chargement generique des donnees parquet
+│   │   ├── option_db.py            # Loaders SPY et AAPL
+│   │   └── rates_db.py             # Loader courbe de taux US
+│   ├── dispersion/
+│   │   ├── dispersion_trade.py     # Orchestrateur du trade de dispersion
+│   │   ├── greek_sizing.py         # Sizing theta/gamma-dollar/vega-neutre
+│   │   ├── dynamic_allocation.py   # Signaux de timing et overlay dynamique
+│   │   ├── robustness.py           # Sensibilite (tcost, seuil, fenetre) et permutation
+│   │   └── signal_analysis.py      # Analyse par buckets, correlation forward, perf conditionnelle
+│   ├── metrics/
+│   │   ├── distance.py
+│   │   ├── performance.py          # Sharpe, drawdown, Calmar, rendements annualises
+│   │   ├── util.py
+│   │   └── volatility.py           # Volatilite realisee
+│   ├── pricing/
+│   │   ├── black_scholes.py        # Pricing et grecs Black-Scholes
+│   │   └── implied_volatility.py   # Inversion de vol implicite
+│   ├── stochastic/
+│   │   ├── base.py
+│   │   └── geometric_brownian_motion.py
+│   ├── surface/
+│   │   ├── base.py
+│   │   ├── sabr.py
+│   │   ├── ssvi.py
+│   │   └── svi.py
+│   └── trading/
+│       ├── backtest.py             # Moteur de backtest (NAV, PnL, positions driftees)
+│       ├── option_trade.py         # Objets de trade et delta-hedging
+│       ├── selection.py            # Selection d'options (strike, DTE)
+│       └── strategies.py           # Definition des strategies (straddle, etc.)
+├── test_bt.py                      # Smoke test CLI (3 variantes, janv.--juin 2021)
+├── pyproject.toml
+├── requirements.txt
+└── LICENSE
+```
+
+## Installation
+
+Prerequis : Python >= 3.10.
+
+```bash
+git clone https://github.com/Mariuscalaque/Volatility-Trading-Project--Dispersion-Strategies.git
+cd Volatility-Trading-Project--Dispersion-Strategies
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+`pywin32` est declare comme dependance conditionnelle (`sys_platform == "win32"`), ce qui permet au meme fichier requirements de fonctionner sous Linux et dans Codespaces.
 
 ## Smoke test
 
-Pour exécuter un smoke test CLI léger en dehors de Jupyter :
+Pour verifier que l'ensemble de la chaine fonctionne en dehors de Jupyter :
 
 ```bash
-.venv/bin/python test_bt.py
+python test_bt.py
 ```
 
-Le script lance les trois variantes sur un échantillon plus court et vérifie que la NAV, le PnL et les positions driftées sont bien produits.
+Le script lance les trois variantes (theta, gamma, vega) sur un echantillon reduit (janvier--juin 2021) et verifie que la NAV, le PnL et les positions driftees sont bien produits.
+
+## Stack technique
+
+| Categorie | Librairies |
+|---|---|
+| Calcul scientifique | numpy, scipy, pandas |
+| Pricing et grecs | Black-Scholes maison (`src/pricing/`) |
+| Surfaces de vol | SVI, SSVI, SABR (`src/surface/`) |
+| Statistiques et ML | statsmodels, scikit-learn |
+| Visualisation | matplotlib, seaborn |
+| Donnees | pyarrow (parquet) |
+
+## Licence
+
+Voir le fichier [LICENSE](LICENSE).
