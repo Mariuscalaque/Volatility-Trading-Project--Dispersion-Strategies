@@ -357,7 +357,6 @@ This script runs all three Greek-neutral variants on a reduced sample (January--
 
 ## References
 
-- Moskowitz, T. J., Ooi, Y. H., & Pedersen, L. H. (2012). *Time series momentum.* Journal of Financial Economics, 104(2), 228-250.
 - Driessen, J., Maenhout, P. J., & Vilkov, G. (2009). *The price of correlation risk: Evidence from equity options.* The Journal of Finance, 64(3), 1377-1406.
 - Carr, P., & Wu, L. (2009). *Variance risk premiums.* The Review of Financial Studies, 22(3), 1311-1341.
 - Gatheral, J. (2004). *A parsimonious arbitrage-free implied volatility parameterization with application to the valuation of volatility derivatives.* Presentation at Global Derivatives & Risk Management.
