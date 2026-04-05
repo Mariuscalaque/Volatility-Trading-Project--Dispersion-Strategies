@@ -125,17 +125,6 @@ python test_bt.py
 
 Le script lance les trois variantes (theta, gamma, vega) sur un echantillon reduit (janvier--juin 2021) et verifie que la NAV, le PnL et les positions driftees sont bien produits.
 
-## Stack technique
-
-| Categorie | Librairies |
-|---|---|
-| Calcul scientifique | numpy, scipy, pandas |
-| Pricing et grecs | Black-Scholes maison (`src/pricing/`) |
-| Surfaces de vol | SVI, SSVI, SABR (`src/surface/`) |
-| Statistiques et ML | statsmodels, scikit-learn |
-| Visualisation | matplotlib, seaborn |
-| Donnees | pyarrow (parquet) |
-
 ## Licence
 
 Voir le fichier [LICENSE](LICENSE).
